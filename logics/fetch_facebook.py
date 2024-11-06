@@ -1,31 +1,62 @@
-from facebook_business.adobjects.page import Page
+import requests
+import datetime
+import streamlit as st
 
-def get_page_insights(page_id, start_date, end_date):
-    page = Page(page_id)
+def facebook_api_data_load(page_id, access_token, metrics, days=10):
+    """Fetch page insights data from Facebook API."""
+    
+    # Definir datas de início e fim para o intervalo de análise
+    until = datetime.date.today()
+    since = until - datetime.timedelta(days=days)
+    
+    # Montar a URL da API
+    url = f"https://graph.facebook.com/v20.0/{page_id}/insights"
     params = {
-        'metric': [
-            'page_post_engagements',                    # 0
-            'page_impressions',                         # 1
-            'page_impressions_unique',                  # 2
-            'page_fans',                                # 3
-            'page_daily_follows',                       # 4
-            'page_views_total',                         # 5
-            'page_negative_feedback_unique',            # 6
-            'page_impressions_viral',                   # 7
-            'page_fan_adds_by_paid_non_paid_unique',    # 8
-            'page_daily_follows_unique',                # 9
-            'page_daily_unfollows_unique',              # 10
-            'page_impressions_by_age_gender_unique',    # 11
-            'page_impressions_organic_unique_v2',       # 12
-            'page_impressions_paid',                    # 13
-            'page_actions_post_reactions_total',        # 14
-            'page_fans_country',                        # 15
-            'page_fan_adds',                            # 16
-            'page_fan_removes',                         # 17
-        ],
-        'since': start_date,
-        'until': end_date,
-        'period': 'day'
+        'metric': ','.join(metrics),  # Métricas válidas definidas aqui
+        'since': since.strftime('%Y-%m-%d'),
+        'until': until.strftime('%Y-%m-%d'),
+        'period': 'day',
+        'access_token': access_token
     }
-    insights = page.get_insights(params=params)
-    return insights
+    
+    # Chamada para a API do Facebook
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()  # Lança uma exceção para códigos de erro HTTP
+        data = response.json()
+        
+        # Verificar se há erros na resposta da API
+        if 'error' in data:
+            st.error(f"Error fetching page insights: {data['error']['message']}")
+            return None
+        return data
+    
+    except requests.exceptions.RequestException as e:
+        st.error(f"Request error: {e}")
+        return None
+
+# Listagem de métricas válidas ajustadas
+facebook_metrics = [
+    "page_post_engagements",
+    "page_engaged_users",
+    "page_impressions",
+    "page_impressions_unique",
+    "page_impressions_viral",
+    "page_fans",
+    "page_fan_adds",
+    "page_fan_removes",
+    "page_views_total",
+    "page_negative_feedback_unique"
+]
+
+# Chamada da função no Streamlit
+page_id = "1060285064080786"  # ID da página
+access_token = "YOUR_ACCESS_TOKEN"  # Token de acesso válido aqui
+
+# Função de carregamento dos dados para exibição no Streamlit
+data = facebook_api_data_load(page_id, access_token, facebook_metrics)
+
+# Exibição de dados no Streamlit
+if data:
+    st.write("Dados de Insights da Página:")
+    st.json(data)
